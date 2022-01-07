@@ -1,6 +1,8 @@
 ﻿using GDLibrary;
+using GDLibrary.Components.UI;
 using GDLibrary.Core;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
 namespace GDApp
@@ -13,10 +15,48 @@ namespace GDApp
         public List<string> inventory;
         private float timeSinceLastStateCheck;
 
+        private UIScene WinScene;
+        
+
         public MyStateManager(Game game)
             : base(game)
         {
             inventory = new List<string>();
+
+            WinScene = new UIScene("WinScene");
+
+            SpriteFont font = game.Content.Load<SpriteFont>("Assets/Fonts/ui");
+
+            //WinScene Initialization
+            //Texture
+            var blackTexture = game.Content.Load<Texture2D>("Assets/Textures/UI/Backgrounds/backgroundTexture");
+            var backgroundTexture = new UITextureObject(
+                "BlackTexture",
+                UIObjectType.Texture,
+                new Transform2D(new Vector2(-1, -1),
+                new Vector2(100, 100), 0),
+                0,
+                blackTexture
+                );
+
+            //WinText
+            var winSTR = "YOU WIN!";
+            Vector2 winDimensions = font.MeasureString(winSTR);
+            Vector2 winOrigin = new Vector2(winDimensions.X / 2, winDimensions.Y / 2);
+            var winTextObject = new UITextObject("WinText", UIObjectType.Text,
+                new Transform2D(new Vector2(game.GraphicsDevice.Viewport.Width/2, game.GraphicsDevice.Viewport.Height/2), Vector2.One * 3, 0),
+                0,
+                Color.White,
+                SpriteEffects.None,
+                winOrigin,
+                font,
+                winSTR
+                );
+
+            WinScene.Add(backgroundTexture);
+            WinScene.Add(winTextObject);
+
+            Application.UISceneManager.Add(WinScene);
         }
 
         protected override void SubscribeToEvents()
@@ -48,10 +88,13 @@ namespace GDApp
                 //aTimer.AutoReset = false;
                 //aTimer.Enabled = true;
                 //Application.UISceneManager.SetActiveScene(AppData.MainMenuScene);
+
+                //Actual Game Handling Code
+                Application.UISceneManager.SetActiveScene("WinScene");
             }
             else if (eventData.EventActionType == EventActionType.OnWin)
             {
-                //Application.UISceneManager.SetActiveScene(AppData.LoseScene);
+                
                 ////count time, when X ms have elapsed
                 //Application.UISceneManager.SetActiveScene(AppData.MainMenuScene);
             }

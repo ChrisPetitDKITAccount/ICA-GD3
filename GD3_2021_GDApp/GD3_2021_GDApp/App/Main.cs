@@ -1,5 +1,6 @@
 ﻿//#define DEMO
 
+using GDApp.Content.Scripts;
 using GDLibrary;
 using GDLibrary.Collections;
 using GDLibrary.Components;
@@ -29,6 +30,10 @@ namespace GDApp
 
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
+
+        private int elapsedGameTime;
+        private CheckpointHandler _checkpointHandler;
+        private int checkPointNumber = 5;
 
         /// <summary>
         /// Stores and updates all scenes (which means all game objects i.e. players, cameras, pickups, behaviours, controllers)
@@ -67,6 +72,10 @@ namespace GDApp
         /// Applies physics to all game objects with a Collider
         /// </summary>
         private PhysicsManager physicsManager;
+
+        private Camera camera;
+
+        private UI ui;
 
         /// <summary>
         /// Quick lookup for all textures used within the game
@@ -124,6 +133,8 @@ namespace GDApp
 
             //create the ui scene manager to update and draw all ui scenes
             uiSceneManager = new UISceneManager(this, _spriteBatch);
+            Application.UISceneManager = uiSceneManager;
+
 
             //create the ui menu manager to update and draw all menu scenes
             uiMenuManager = new MyMenuManager(this, _spriteBatch);
@@ -133,6 +144,9 @@ namespace GDApp
 
             //this will check win/lose logic
             stateManager = new MyStateManager(this);
+
+            _checkpointHandler = new CheckpointHandler(checkPointNumber);
+
 
             //picking support using physics engine
             //this predicate lets us say ignore all the other collidable objects except interactables and consumables
@@ -156,7 +170,6 @@ namespace GDApp
             Application.SceneManager = sceneManager;
             Application.PhysicsManager = physicsManager;
             Application.StateManager = stateManager;
-            Application.UISceneManager = uiSceneManager;
 
             //instanciate render manager to render all drawn game objects using preferred renderer (e.g. forward, backward)
             renderManager = new RenderManager(this, new ForwardRenderer(), false, true);
@@ -208,6 +221,10 @@ namespace GDApp
             Components.Add(stateManager);
         }
 
+        //Variables necessary specifically for time tracking.
+        float nextUpdate = 0.0f;
+        float delay = 1f;
+
         /// <summary>
         /// Not much happens in here as SceneManager, UISceneManager, MenuManager and Inputs are all GameComponents that automatically Update()
         /// Normally we use this to add some temporary demo code in class - Don't forget to remove any temp code inside this method!
@@ -215,6 +232,14 @@ namespace GDApp
         /// <param name="gameTime"></param>
         protected override void Update(GameTime gameTime)
         {
+
+            if (Time.Instance.TotalGameTimeMs / 1000 > nextUpdate)
+            {
+                nextUpdate += delay;
+                elapsedGameTime++;
+                ui.updateTime(elapsedGameTime);
+            }
+
             //if (Input.Keys.WasJustPressed(Microsoft.Xna.Framework.Input.Keys.P))
             //{
             //    //DEMO - raise event
@@ -337,7 +362,7 @@ namespace GDApp
             Input.Mouse.Position = Screen.Instance.ScreenCentre;
 
             //turn on/off debug info
-            InitializeDebugUI(true, false);
+            InitializeDebugUI(false, false);
 
             //to show the menu we must start paused for everything else!
             EventDispatcher.Raise(new EventData(EventCategoryType.Menu, EventActionType.OnPause));
@@ -403,16 +428,7 @@ namespace GDApp
         /// </summary>
         private void LoadSounds()
         {
-            var soundEffect =
-                Content.Load<SoundEffect>("Assets/Sounds/Effects/smokealarm1");
-
-            //add the new sound effect
-            soundManager.Add(new GDLibrary.Managers.Cue(
-                "smokealarm",
-                soundEffect,
-                SoundCategoryType.Alarm,
-                new Vector3(1, 0, 0),
-                false));
+            
         }
 
         /// <summary>
@@ -486,8 +502,11 @@ namespace GDApp
 
             InitializeCollidables(activeScene, worldScale);
 
+            InitializeCheckpoints(activeScene, worldScale);
+
             sceneManager.Add(activeScene);
             sceneManager.LoadScene("level 1");
+
         }
 
         /// <summary>
@@ -620,6 +639,10 @@ namespace GDApp
         /// </summary>
         private void InitializeGameUI()
         {
+            ui = new UI(uiSceneManager);
+            ui.InitializeUI();
+
+            /*
             //create the scene
             var mainGameUIScene = new UIScene(AppData.UI_SCENE_MAIN_NAME);
 
@@ -729,6 +752,7 @@ namespace GDApp
             uiSceneManager.SetActiveScene(AppData.UI_SCENE_MAIN_NAME);
 
             #endregion Add Scene To Manager & Set Active Scene
+            */
         }
 
         /// <summary>
@@ -888,6 +912,11 @@ namespace GDApp
             //add controller to actually move the collidable camera
             camera.AddComponent(new MyCollidableFirstPersonController(12,
                        0.5f, 0.3f, new Vector2(0.006f, 0.004f)));
+ 
+            //Set the CheckPointHandler Transform
+            _checkpointHandler.player = camera.Transform;
+
+            camera.AddComponent(_checkpointHandler);
 
             //add to level
             level.Add(camera);
@@ -899,6 +928,45 @@ namespace GDApp
 
             //allows us to scale time on all game objects that based movement on Time
             // Time.Instance.TimeScale = 0.1f;
+
+           
+            
+        }
+
+        /******************************* CheckPoints *******************************/
+
+        private void InitializeCheckpoints(Scene level, float wordlScale = 500)
+        {
+            #region Reusable - You can copy and re-use this code elsewhere, if required
+
+            //re-use the code on the gfx card, if we want to draw multiple objects using Clone
+            var shader = new BasicShader(Application.Content, false, true);
+
+            //create the sphere
+            var sphereArchetype = new GameObject("sphere", GameObjectType.Interactable, true);
+
+            #endregion Reusable - You can copy and re-use this code elsewhere, if required
+
+            GameObject clone = null;
+
+            for (int i = 0; i < 5; i++)
+            {
+                clone = sphereArchetype.Clone() as GameObject;
+                clone.Name = $"Checkpoint - {i}";
+                clone.Transform.SetTranslation(20 * i, 0, 0);
+                clone.AddComponent(new ModelRenderer(
+                    modelDictionary["sphere"],
+                    new BasicMaterial("sphere_material",
+                    shader, Color.White, 1, textureDictionary["checkerboard"])));
+
+                clone.AddComponent(new Checkpoint());
+                _checkpointHandler.addCheckPoint(clone.GetComponent<Checkpoint>(), i);
+
+
+
+                //add To Scene Manager
+                level.Add(clone);
+            }
         }
 
         /******************************* Collidables *******************************/
@@ -909,10 +977,10 @@ namespace GDApp
         private void InitializeCollidables(Scene level, float worldScale = 500)
         {
             InitializeCollidableGround(level, worldScale);
-            InitializeCollidableCubes(level);
+            //InitializeCollidableCubes(level);
 
-            InitializeCollidableModels(level);
-            InitializeCollidableTriangleMeshes(level);
+            //InitializeCollidableModels(level);
+            //InitializeCollidableTriangleMeshes(level);
         }
 
         private void InitializeCollidableTriangleMeshes(Scene level)
