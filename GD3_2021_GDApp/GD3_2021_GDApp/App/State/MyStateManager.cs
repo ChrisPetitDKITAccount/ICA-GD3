@@ -43,7 +43,7 @@ namespace GDApp
             var winSTR = "YOU WIN!";
             Vector2 winDimensions = font.MeasureString(winSTR);
             Vector2 winOrigin = new Vector2(winDimensions.X / 2, winDimensions.Y / 2);
-            var winTextObject = new UITextObject("WinText", UIObjectType.Text,
+            UITextObject winTextObject = new UITextObject("WinText", UIObjectType.Text,
                 new Transform2D(new Vector2(game.GraphicsDevice.Viewport.Width/2, game.GraphicsDevice.Viewport.Height/2), Vector2.One * 3, 0),
                 0,
                 Color.White,

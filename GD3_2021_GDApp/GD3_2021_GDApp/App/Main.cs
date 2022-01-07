@@ -1,6 +1,7 @@
 ﻿//#define DEMO
 
 using GDApp.Content.Scripts;
+using GDApp.Content.Scripts.Player;
 using GDLibrary;
 using GDLibrary.Collections;
 using GDLibrary.Components;
@@ -59,6 +60,7 @@ namespace GDApp
         /// Plays all 2D and 3D sounds
         /// </summary>
         private SoundManager soundManager;
+        private AudioListener playerHeadphone;
 
         private MyStateManager stateManager;
         private PickingManager pickingManager;
@@ -141,11 +143,12 @@ namespace GDApp
 
             //add support for playing sounds
             soundManager = new SoundManager(this);
+            Application.SoundManager = soundManager;
 
             //this will check win/lose logic
             stateManager = new MyStateManager(this);
 
-            _checkpointHandler = new CheckpointHandler(checkPointNumber);
+            _checkpointHandler = new CheckpointHandler(checkPointNumber,this);
 
 
             //picking support using physics engine
@@ -170,6 +173,10 @@ namespace GDApp
             Application.SceneManager = sceneManager;
             Application.PhysicsManager = physicsManager;
             Application.StateManager = stateManager;
+            
+
+            playerHeadphone = new AudioListener();
+            Application.playerListener = playerHeadphone;
 
             //instanciate render manager to render all drawn game objects using preferred renderer (e.g. forward, backward)
             renderManager = new RenderManager(this, new ForwardRenderer(), false, true);
@@ -239,6 +246,8 @@ namespace GDApp
                 elapsedGameTime++;
                 ui.updateTime(elapsedGameTime);
             }
+
+            ui.updateCheckpoints(_checkpointHandler.currentCheckpoint, _checkpointHandler.list.Length);
 
             //if (Input.Keys.WasJustPressed(Microsoft.Xna.Framework.Input.Keys.P))
             //{
@@ -428,7 +437,26 @@ namespace GDApp
         /// </summary>
         private void LoadSounds()
         {
+            //music by Twisterium / freebackgroundtracks.net
+            //Background Track
             
+            
+
+            GDLibrary.Managers.Cue backgroundMusic = new GDLibrary.Managers.Cue("BackgroundMusic"
+                                                                                , Application.Main.Content.Load<SoundEffect>("Assets/Sounds/Night_Life")
+                                                                                , SoundCategoryType.BackgroundMusic, new Vector3(0.1f, 1f, 1f), true);
+            AudioEmitter emitter = new AudioEmitter();
+
+            //Immediately begin playing the background music
+            soundManager.Add(backgroundMusic);
+            soundManager.Play3D("BackgroundMusic", playerHeadphone, emitter);
+
+            //Checkpoint passing Sound
+            GDLibrary.Managers.Cue checkPoint = new GDLibrary.Managers.Cue("CheckpointSound"
+                                                                                , Application.Main.Content.Load<SoundEffect>("Assets/Sounds/checkPoint")
+                                                                                , SoundCategoryType.BackgroundMusic, new Vector3(1f, 1f, 1f), true);
+
+
         }
 
         /// <summary>
@@ -918,6 +946,8 @@ namespace GDApp
 
             camera.AddComponent(_checkpointHandler);
 
+            camera.AddComponent(new PlayerListener());
+
             //add to level
             level.Add(camera);
 
@@ -953,7 +983,7 @@ namespace GDApp
             {
                 clone = sphereArchetype.Clone() as GameObject;
                 clone.Name = $"Checkpoint - {i}";
-                clone.Transform.SetTranslation(20 * i, 0, 0);
+                clone.Transform.SetTranslation(0, 0, -20 * (i+1));
                 clone.AddComponent(new ModelRenderer(
                     modelDictionary["sphere"],
                     new BasicMaterial("sphere_material",
@@ -977,6 +1007,7 @@ namespace GDApp
         private void InitializeCollidables(Scene level, float worldScale = 500)
         {
             InitializeCollidableGround(level, worldScale);
+            InitializeCollidableWalls(level, worldScale);
             //InitializeCollidableCubes(level);
 
             //InitializeCollidableModels(level);
@@ -1079,6 +1110,96 @@ namespace GDApp
 
             //add To Scene Manager
             level.Add(ground);
+        }
+
+        private void InitializeCollidableWalls(Scene level, float worldScale)
+        {
+
+            #region Reusable - You can copy and re-use this code elsewhere, if required
+
+            //re-use the code on the gfx card, if we want to draw multiple objects using Clone
+            var shader = new BasicShader(Application.Content, true, true);
+            //re-use the mesh
+            var mesh = new CubeMesh();
+            //clone the cube
+            var cube = new GameObject("cube", GameObjectType.Consumable, false);
+
+            #endregion Reusable - You can copy and re-use this code elsewhere, if required
+
+            GameObject clone = null;
+
+            //Obstacle 1
+                //clone the archetypal cube
+                clone = cube.Clone() as GameObject;
+                clone.Transform.SetRotation(0, 45, 0);
+                clone.Transform.SetScale(10, 10, 10);
+                clone.Name = $"obstacle 1";
+                clone.Transform.Translate(6, 5f, -30);
+                clone.AddComponent(new MeshRenderer(mesh,
+                    new BasicMaterial("cube_material", shader,
+                    Color.White, 1f, textureDictionary["crate1"])));
+
+                //add Collision Surface(s)
+                collider = new Collider(true,false);
+
+                clone.AddComponent(collider);
+                collider.AddPrimitive(new Box(
+                    clone.Transform.LocalTranslation,
+                    clone.Transform.LocalRotation,
+                    clone.Transform.LocalScale * 1.01f), //make the colliders a fraction larger so that transparent boxes dont sit exactly on the ground and we end up with flicker or z-fighting
+                    new MaterialProperties(0.8f, 0.8f, 0.7f));
+                collider.Enable(false, 10);
+
+                //add To Scene Manager
+                level.Add(clone);
+
+            //Obstacle 2
+            clone = cube.Clone() as GameObject;
+            clone.Transform.SetRotation(0,45, 0);
+            clone.Transform.SetScale(5, 5, 5);
+            clone.Name = $"obstacle 2";
+            clone.Transform.Translate(-2, 2.5f, -50);
+            clone.AddComponent(new MeshRenderer(mesh,
+                new BasicMaterial("cube_material", shader,
+                Color.White, 1f, textureDictionary["crate1"])));
+
+            //add Collision Surface(s)
+            collider = new Collider(true, false);
+
+            clone.AddComponent(collider);
+            collider.AddPrimitive(new Box(
+                clone.Transform.LocalTranslation,
+                clone.Transform.LocalRotation,
+                clone.Transform.LocalScale * 1.01f), //make the colliders a fraction larger so that transparent boxes dont sit exactly on the ground and we end up with flicker or z-fighting
+                new MaterialProperties(0.8f, 0.8f, 0.7f));
+            collider.Enable(false, 10);
+
+            //add To Scene Manager
+            level.Add(clone);
+
+            //Obstacle 3
+            clone = cube.Clone() as GameObject;
+            clone.Transform.SetRotation(0, 0, 0);
+            clone.Transform.SetScale(50, 5, 5);
+            clone.Name = $"obstacle 2";
+            clone.Transform.Translate(-10, 2.5f, -70);
+            clone.AddComponent(new MeshRenderer(mesh,
+                new BasicMaterial("cube_material", shader,
+                Color.Black, 1f, textureDictionary["crate1"])));
+
+            //add Collision Surface(s)
+            collider = new Collider(true, false);
+
+            clone.AddComponent(collider);
+            collider.AddPrimitive(new Box(
+                clone.Transform.LocalTranslation,
+                clone.Transform.LocalRotation,
+                clone.Transform.LocalScale * 1.01f), //make the colliders a fraction larger so that transparent boxes dont sit exactly on the ground and we end up with flicker or z-fighting
+                new MaterialProperties(0.8f, 0.8f, 0.7f));
+            collider.Enable(false, 10);
+
+            //add To Scene Manager
+            level.Add(clone);
         }
 
         private void InitializeCollidableCubes(Scene level)

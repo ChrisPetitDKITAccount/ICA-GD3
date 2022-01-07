@@ -1,6 +1,7 @@
 ﻿using GDApp;
 using GDLibrary.Managers;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -51,6 +52,7 @@ namespace GDLibrary
         /// Gets the physics manager.
         /// </summary>
         public static PhysicsManager PhysicsManager { get; internal set; }
+        public static SoundManager SoundManager { get; internal set; }
 
         /// <summary>
         /// Called when we exit the application.
@@ -60,5 +62,7 @@ namespace GDLibrary
             //TODO - do we need to do anything here that isnt done in SceneManager, Scene, GameObject, or Component Dispose() method calls?
             throw new NotImplementedException();
         }
+
+        public static AudioListener playerListener { get; internal set; }
     }
 }
